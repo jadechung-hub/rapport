@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>이미지카드 퍼실리테이션</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg: #0f1117;
@@ -39,8 +40,12 @@
     border-bottom: 1px solid var(--border);
     padding: 14px 16px 0;
   }
-  .title {
+  .title-row {
+    display: flex; align-items: center; justify-content: space-between;
     margin: 0 0 10px;
+  }
+  .title {
+    margin: 0;
     font-size: 18px; font-weight: 700;
     letter-spacing: -.01em;
     display: flex; align-items: center; gap: 8px;
@@ -48,9 +53,20 @@
   .title .dot-y { color: var(--gold); }
   .title .dot-g { color: var(--green); }
 
-  .tabs {
-    display: flex; gap: 4px;
+  .status-badge {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev-2);
+    color: var(--text-dim);
+    white-space: nowrap;
   }
+  .status-badge.cloud { color: var(--green); border-color: rgba(62,207,142,.4); }
+  .status-badge.local { color: var(--gold); border-color: rgba(232,184,75,.4); }
+  .status-badge.err   { color: var(--danger); border-color: rgba(255,93,93,.4); }
+
+  .tabs { display: flex; gap: 4px; }
   .tab {
     flex: 1;
     background: transparent;
@@ -85,7 +101,7 @@
     font-size: 13px; color: var(--text-dim);
   }
   label.field span { display: block; margin-bottom: 6px; }
-  input[type=text], select, textarea {
+  input[type=text], input[type=password], select, textarea {
     width: 100%;
     background: var(--bg-elev-2);
     color: var(--text);
@@ -97,7 +113,7 @@
     outline: none;
     transition: border-color .15s, box-shadow .15s;
   }
-  input[type=text]:focus, select:focus, textarea:focus {
+  input:focus, select:focus, textarea:focus {
     border-color: var(--gold);
     box-shadow: 0 0 0 3px rgba(232,184,75,.15);
   }
@@ -126,9 +142,7 @@
     display: grid; grid-template-columns: 1fr; gap: 10px;
     margin-bottom: 14px;
   }
-  @media (min-width: 720px) {
-    .questions { grid-template-columns: 1fr 1fr; }
-  }
+  @media (min-width: 720px) { .questions { grid-template-columns: 1fr 1fr; } }
   .qcard {
     background: var(--bg-elev);
     border: 1px solid var(--border);
@@ -154,7 +168,6 @@
     border: 1.5px dashed var(--border);
     border-radius: 12px;
     padding: 8px;
-    min-height: 0;
     display: flex; flex-direction: column;
   }
   .slot.now    { border-color: rgba(232,184,75,.45); }
@@ -177,6 +190,8 @@
     position: relative;
   }
   .slot-body img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .slot-body.type-now img    { filter: grayscale(.55) brightness(.78) contrast(1.08); }
+  .slot-body.type-future img { filter: saturate(1.18) brightness(1.06); }
   .slot-clear {
     background: rgba(0,0,0,.5); color: #fff;
     border: 1px solid rgba(255,255,255,.2);
@@ -252,6 +267,8 @@
     opacity: 0; transition: opacity .25s;
   }
   .card-img img.loaded { opacity: 1; }
+  .card-img.type-now img    { filter: grayscale(.55) brightness(.78) contrast(1.08); }
+  .card-img.type-future img { filter: saturate(1.18) brightness(1.06); }
   .card-img.loading::before {
     content: "";
     position: absolute; inset: 0;
@@ -267,13 +284,6 @@
     font-size: 13px; color: var(--text); opacity: .9;
     padding: 8px; text-align: center;
   }
-  /* 테마별 톤 — 현재(어둠) / 미래(빛) */
-  .card-img.type-now img    { filter: grayscale(.55) brightness(.78) contrast(1.08); }
-  .card-img.type-future img { filter: saturate(1.18) brightness(1.06); }
-  .slot-body.type-now img    { filter: grayscale(.55) brightness(.78) contrast(1.08); }
-  .slot-body.type-future img { filter: saturate(1.18) brightness(1.06); }
-  .pair-cell.now    .pimg img { filter: grayscale(.55) brightness(.78) contrast(1.08); }
-  .pair-cell.future .pimg img { filter: saturate(1.18) brightness(1.06); }
   @keyframes shimmer {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
@@ -348,6 +358,8 @@
     aspect-ratio: 4/3; border-radius: 8px; overflow: hidden; background: var(--bg-elev-2);
   }
   .pair-cell .pimg img { width: 100%; height: 100%; object-fit: cover; }
+  .pair-cell.now    .pimg img { filter: grayscale(.55) brightness(.78) contrast(1.08); }
+  .pair-cell.future .pimg img { filter: saturate(1.18) brightness(1.06); }
   .pair-cell .plabel { font-size: 11px; color: var(--text-dim); text-align: center; padding: 4px 0 2px; }
   .pair-cell .preason {
     font-size: 12.5px; line-height: 1.5; color: var(--text);
@@ -382,6 +394,11 @@
   }
   .admin-card h3 { margin: 0 0 8px; font-size: 15px; }
   .admin-card p  { margin: 0 0 14px; color: var(--text-dim); font-size: 13px; }
+  .admin-card code {
+    background: var(--bg-elev-2);
+    padding: 1px 6px; border-radius: 4px;
+    font-size: 12px; color: var(--gold);
+  }
 
   /* footer notice */
   .notice {
@@ -398,6 +415,17 @@
   }
   .notice b { color: var(--gold); }
 
+  .copyright {
+    margin: 18px auto 28px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 11.5px;
+    letter-spacing: .02em;
+    line-height: 1.6;
+    padding: 0 16px;
+  }
+  .copyright b { color: var(--text); font-weight: 700; }
+
   /* toast */
   .toast {
     position: fixed; left: 50%; top: 70px;
@@ -413,19 +441,21 @@
     z-index: 200;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .toast.ok { border-color: var(--green); }
+  .toast.ok  { border-color: var(--green); }
   .toast.err { border-color: var(--danger); }
 
-  /* hide */
   .hidden { display: none !important; }
 </style>
 </head>
 <body>
   <header class="header">
-    <h1 class="title">
-      <span class="dot-y">●</span><span class="dot-g">●</span>
-      이미지카드 퍼실리테이션
-    </h1>
+    <div class="title-row">
+      <h1 class="title">
+        <span class="dot-y">●</span><span class="dot-g">●</span>
+        이미지카드 퍼실리테이션
+      </h1>
+      <span id="status" class="status-badge">연결 중…</span>
+    </div>
     <nav class="tabs">
       <button class="tab active" data-tab="participate">참가</button>
       <button class="tab" data-tab="gallery">갤러리</button>
@@ -435,7 +465,6 @@
 
   <!-- 참가 -->
   <main id="view-participate" class="view">
-    <!-- 입장 게이트 -->
     <div id="gate" class="gate">
       <h2>참가자 정보</h2>
       <p>이름과 조를 선택하면 시작합니다.</p>
@@ -455,7 +484,6 @@
       <button id="g-start" class="btn btn-primary">시작하기</button>
     </div>
 
-    <!-- 본 화면 -->
     <div id="board" class="hidden">
       <div class="questions">
         <div class="qcard now">
@@ -529,172 +557,243 @@
 
   <!-- 관리자 -->
   <main id="view-admin" class="view hidden">
-    <div class="admin-card">
-      <h3>데이터 초기화</h3>
-      <p>모든 제출 내역과 참가자 정보를 영구적으로 삭제합니다. 되돌릴 수 없습니다.</p>
-      <button id="btn-reset" class="btn btn-danger">전체 데이터 초기화</button>
+    <!-- 잠금 화면 -->
+    <div id="admin-lock" class="gate" style="margin-top:30px;">
+      <h2>🔒 관리자 인증</h2>
+      <p>관리자 기능은 비밀번호로 보호됩니다.<br/>초기 비밀번호는 진행자에게 문의하세요.</p>
+      <label class="field">
+        <span>비밀번호</span>
+        <input id="admin-pwd" type="password" placeholder="비밀번호를 입력하세요" autocomplete="off"/>
+      </label>
+      <button id="admin-unlock" class="btn btn-primary">잠금 해제</button>
     </div>
-    <div class="admin-card">
-      <h3>제출 데이터 내보내기</h3>
-      <p>현재까지의 제출 내역을 JSON 파일로 다운로드합니다.</p>
-      <button id="btn-export" class="btn btn-ghost">JSON 다운로드</button>
+    <!-- 인증 후 콘텐츠 -->
+    <div id="admin-content" class="hidden">
+      <div class="admin-card">
+        <h3>저장 모드</h3>
+        <p id="storage-status">확인 중…</p>
+      </div>
+      <div class="admin-card">
+        <h3>데이터 초기화</h3>
+        <p>모든 제출 내역을 영구적으로 삭제합니다.<br/>클라우드 모드일 경우 모든 참가자 데이터가 삭제됩니다. 되돌릴 수 없습니다.</p>
+        <button id="btn-reset" class="btn btn-danger">전체 데이터 초기화</button>
+      </div>
+      <div class="admin-card">
+        <h3>제출 데이터 내보내기</h3>
+        <p>현재까지의 제출 내역을 JSON 파일로 다운로드합니다.</p>
+        <button id="btn-export" class="btn btn-ghost">JSON 다운로드</button>
+      </div>
+      <div class="admin-card">
+        <h3>관리자 비밀번호 변경</h3>
+        <p>새 비밀번호로 변경합니다. 변경 후에는 새 비밀번호로만 접근 가능합니다.</p>
+        <label class="field">
+          <span>현재 비밀번호</span>
+          <input id="pwd-current" type="password" autocomplete="off"/>
+        </label>
+        <label class="field">
+          <span>새 비밀번호 (8자 이상)</span>
+          <input id="pwd-new" type="password" autocomplete="off"/>
+        </label>
+        <label class="field">
+          <span>새 비밀번호 확인</span>
+          <input id="pwd-new2" type="password" autocomplete="off"/>
+        </label>
+        <button id="btn-change-pwd" class="btn btn-primary">비밀번호 변경</button>
+      </div>
+      <div class="admin-card" style="border-color:rgba(232,184,75,.3);background:rgba(232,184,75,.04);">
+        <h3>⚙️ 세션 잠금</h3>
+        <p>지금 브라우저에서 관리자 인증을 해제합니다. 다른 기기에는 영향 없습니다.</p>
+        <button id="btn-lock" class="btn btn-ghost">로그아웃</button>
+      </div>
     </div>
   </main>
 
   <div class="notice">
-    💡 사진은 <b>Picsum Photos</b> (picsum.photos)에서 시드 기반으로 불러옵니다 — 카드별로 항상 같은 사진이 표시됩니다.<br/>
-    톤: 🟡 현재 = 어둡고 탈채도 / 🟢 미래 = 밝고 채도 강화 (한글 라벨이 의미를 담당합니다).<br/>
-    네트워크 차단 환경에서는 <b>GitHub Pages</b> 또는 <b>Netlify</b>에 배포해 일반 브라우저로 열어주세요.
+    💡 사진은 <b>Picsum Photos</b>에서 시드 기반으로 불러옵니다 — 카드별로 항상 같은 사진이 표시됩니다.<br/>
+    톤: 🟡 현재 = 어둡고 탈채도 / 🟢 미래 = 밝고 채도 강화 (한글 라벨이 의미를 담당).
   </div>
+
+  <footer class="copyright">
+    © <b>re:Box Consulting Proprietary</b> &middot; 무단 복제를 금합니다
+  </footer>
 
   <div id="toast" class="toast"></div>
 
 <script>
 /* ============================================================
-   DATA — Unsplash 사진 100장 (50 현재 / 50 미래)
-   URL: https://images.unsplash.com/photo-{ID}?w=400&q=75&auto=format
+   ⚙️ SUPABASE 설정 — 두 값을 본인 프로젝트 키로 교체하세요
+   Supabase 대시보드 > Settings > API 에서 확인:
+   - Project URL  →  SUPABASE_URL
+   - anon public  →  SUPABASE_ANON_KEY
    ============================================================ */
+const SUPABASE_URL      = "PASTE_YOUR_SUPABASE_URL_HERE";
+const SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_KEY_HERE";
 
+/* ============================================================
+   카드 데이터 — 100장 (현재 50 / 미래 50)
+   사진은 Picsum Photos 시드로 가져옵니다.
+   ============================================================ */
 const NOW_CARDS = [
-  ["1495344517868-8ebaf0a2044a","균열된 땅"],
-  ["1500382017468-9049fed747ef","폭풍우 치는 바다"],
-  ["1504681869696-d977211a5f4c","짙은 안개 속 길"],
-  ["1485827404703-89b55fcc595e","빈 공장 통로"],
-  ["1518837695005-2083093ee35b","거친 파도"],
-  ["1487621167305-5d248087c724","무너진 벽"],
-  ["1444041654861-c0c1c1f4f0a0","사막의 균열"],
-  ["1469854523086-cc02fe5d8800","어두운 숲"],
-  ["1474440692490-2e83ae13ba29","폐허가 된 건물"],
-  ["1518709268805-4e9042af2176","번개 치는 하늘"],
-  ["1483450388369-9ed95738483c","고독한 길"],
-  ["1494500764479-0c8f2919a3d8","비 내리는 창"],
-  ["1465146344425-f00d5f5c8f07","마른 가지"],
-  ["1454496522488-7a8e488e8606","눈보라 산"],
-  ["1502920917128-1aa500764cbd","흐린 하늘"],
-  ["1422565967083-26b0a6c12303","무거운 짐"],
-  ["1502082553048-f009c37129b9","어두운 도시"],
-  ["1521120098171-c69a1376a89a","빈 의자"],
-  ["1504826260979-242151ee45b7","거친 절벽"],
-  ["1518791841217-8f162f1e1131","외로운 그림자"],
-  ["1477414348463-c0eb7f1359b6","깊은 동굴"],
-  ["1444664072501-f7567aa11b7e","부서진 유리"],
-  ["1438761681033-6461ffad8d80","흐린 풍경"],
-  ["1445820258143-fc4d2d59e91e","좁은 골목"],
-  ["1492144534655-ae79c964c9d7","어두운 터널"],
-  ["1493836512294-502baa1986e2","비어있는 사무실"],
-  ["1505765050516-f72dcac9c60e","가시밭"],
-  ["1437846972679-9e6e537be46e","폐쇄된 문"],
-  ["1440635592348-167b1b30296f","돌무덤"],
-  ["1416268464509-3b53e87ed241","낡은 책"],
-  ["1426604966848-d7adac402bff","겨울나무"],
-  ["1431069767777-c5e83a0e1e71","흩날리는 모래"],
-  ["1455587734955-081b22074882","녹슨 기계"],
-  ["1469474968028-56623f02e42e","구름 낀 산"],
-  ["1490604001847-b712b0c2f967","잠긴 자물쇠"],
-  ["1478760329108-5c3ed9d182c0","흐린 거리"],
-  ["1500964757637-c85e8a162699","쓸쓸한 해변"],
-  ["1503551723145-6c040742065b","녹슨 다리"],
-  ["1507525428034-b723cf961d3e","폭풍 전 바다"],
-  ["1515934751635-c81c6bc9a2d8","쓰러진 나무"],
-  ["1517637382994-f02da38c6728","그늘진 계단"],
-  ["1521295121783-8a321d551ad2","외로운 벤치"],
-  ["1524293568345-75d62c3664f7","어두운 숲길"],
-  ["1530176518983-0d4651cefb4e","흐린 도시"],
-  ["1504198266287-1659872e6590","폐쇄된 문"],
-  ["1506452305024-9d3f02d1c9b5","낡은 건물"],
-  ["1508349937151-22b68b72d5b1","흙먼지 길"],
-  ["1462536943532-57a629f6cc60","가뭄의 땅"],
-  ["1466611653911-95081537e5b7","고된 노동"],
-  ["1463412813679-2511fbe5dec3","쓸쓸한 가로등"]
+  ["now-01","균열된 땅"],["now-02","폭풍우 치는 바다"],["now-03","짙은 안개"],
+  ["now-04","빈 공장"],["now-05","거친 파도"],["now-06","무너진 벽"],
+  ["now-07","사막의 균열"],["now-08","어두운 숲"],["now-09","폐허"],
+  ["now-10","번개"],["now-11","고독한 길"],["now-12","비 내리는 창"],
+  ["now-13","마른 가지"],["now-14","눈보라 산"],["now-15","흐린 하늘"],
+  ["now-16","무거운 짐"],["now-17","어두운 도시"],["now-18","빈 의자"],
+  ["now-19","거친 절벽"],["now-20","외로운 그림자"],["now-21","깊은 동굴"],
+  ["now-22","부서진 유리"],["now-23","흐린 풍경"],["now-24","좁은 골목"],
+  ["now-25","어두운 터널"],["now-26","빈 사무실"],["now-27","가시밭"],
+  ["now-28","폐쇄된 문"],["now-29","돌무덤"],["now-30","낡은 책"],
+  ["now-31","겨울나무"],["now-32","흩날리는 모래"],["now-33","녹슨 기계"],
+  ["now-34","구름 낀 산"],["now-35","잠긴 자물쇠"],["now-36","흐린 거리"],
+  ["now-37","쓸쓸한 해변"],["now-38","녹슨 다리"],["now-39","폭풍 전 바다"],
+  ["now-40","쓰러진 나무"],["now-41","그늘진 계단"],["now-42","외로운 벤치"],
+  ["now-43","어두운 숲길"],["now-44","흐린 도시"],["now-45","낡은 건물"],
+  ["now-46","흙먼지 길"],["now-47","가뭄의 땅"],["now-48","고된 노동"],
+  ["now-49","쓸쓸한 가로등"],["now-50","빈 방"]
 ];
-
 const FUTURE_CARDS = [
-  ["1506905925346-21bda4d32df4","산 정상의 일출"],
-  ["1470071459604-3b5ec3a7fe05","안개 위 햇살"],
-  ["1418065460487-3e41a6c84dc5","활짝 핀 들꽃"],
-  ["1441974231531-c6227db76b6e","빛이 비치는 숲"],
-  ["1500964757637-c85e8a162699","평화로운 호수"],
-  ["1493246507139-91e8fad9978e","고요한 바다"],
-  ["1501785888041-af3ef285b470","무지개"],
-  ["1506744038136-46273834b3fb","호수 반영"],
-  ["1507525428034-b723cf961d3e","아름다운 일몰"],
-  ["1504387828636-abeb50778c0c","새싹"],
-  ["1473448912268-2022ce9509d8","꽃밭"],
-  ["1444464666168-49d633b86797","유채꽃"],
-  ["1490750967868-88aa4486c946","라벤더밭"],
-  ["1502082553048-f009c37129b9","도시의 야경"],
-  ["1431794062232-2a99a5431c6c","별이 빛나는 밤"],
-  ["1419242902214-272b3f66ee7a","오로라"],
-  ["1464822759023-fed622ff2c3b","눈 덮인 산"],
-  ["1421789665209-c9b2a435e3dc","해바라기"],
-  ["1518837695005-2083093ee35b","쏟아지는 햇살"],
-  ["1469474968028-56623f02e42e","웅장한 산맥"],
-  ["1455218873509-8097305ee378","폭포"],
-  ["1470770841072-f978cf4d019e","평온한 호수"],
-  ["1472214103451-9374bd1c798e","청량한 강"],
-  ["1518837695005-2083093ee35b","따뜻한 빛"],
-  ["1504384308090-c894fdcc538d","팀워크"],
-  ["1454165804606-c3d57bc86b40","함께 일하는 손"],
-  ["1521737711867-e3b97375f902","서로 도움"],
-  ["1517048676732-d65bc937f952","협업 미팅"],
-  ["1542744173-8e7e53415bb0","계획 수립"],
-  ["1507537297725-24a1c029d3ca","웃는 사람들"],
-  ["1521791136064-7986c2920216","손잡은 동료"],
-  ["1556761175-5973dc0f32e7","함께 토론"],
-  ["1531482615713-2afd69097998","열정적 발표"],
-  ["1522202176988-66273c2fd55f","즐거운 협업"],
-  ["1525130413817-d45c1d127c42","목표 달성"],
-  ["1486312338219-ce68d2c6f44d","집중하는 모습"],
-  ["1517649763962-0c623066013b","축하의 순간"],
-  ["1522071820081-009f0129c71c","사람들의 미소"],
-  ["1517245386807-bb43f82c33c4","함께 걷는 길"],
-  ["1483728642387-6c3bdd6c93e5","희망찬 길"],
-  ["1493612276216-ee3925520721","열쇠를 든 손"],
-  ["1502082553048-f009c37129b9","빛나는 도시"],
-  ["1520209533936-c9b8d50aef58","산뜻한 아침"],
-  ["1542038784456-1ea8e935640e","희망의 손"],
-  ["1497436072909-60f360e1d4b1","울창한 숲"],
-  ["1419833173245-f59e1b93f9ee","따뜻한 햇빛"],
-  ["1499209974431-9dddcece7f88","넓은 들판"],
-  ["1426604966848-d7adac402bff","상쾌한 자연"],
-  ["1454942901704-3c44c11b2ad1","꽃과 나비"],
-  ["1502082553048-f009c37129b9","빛나는 미래"]
+  ["fut-01","산 정상의 일출"],["fut-02","안개 위 햇살"],["fut-03","활짝 핀 들꽃"],
+  ["fut-04","빛이 비치는 숲"],["fut-05","평화로운 호수"],["fut-06","고요한 바다"],
+  ["fut-07","무지개"],["fut-08","호수 반영"],["fut-09","아름다운 일몰"],
+  ["fut-10","새싹"],["fut-11","꽃밭"],["fut-12","유채꽃"],
+  ["fut-13","라벤더밭"],["fut-14","도시의 야경"],["fut-15","별이 빛나는 밤"],
+  ["fut-16","오로라"],["fut-17","눈 덮인 산"],["fut-18","해바라기"],
+  ["fut-19","쏟아지는 햇살"],["fut-20","웅장한 산맥"],["fut-21","폭포"],
+  ["fut-22","평온한 호수"],["fut-23","청량한 강"],["fut-24","따뜻한 빛"],
+  ["fut-25","팀워크"],["fut-26","함께 일하는 손"],["fut-27","서로 도움"],
+  ["fut-28","협업 미팅"],["fut-29","계획 수립"],["fut-30","웃는 사람들"],
+  ["fut-31","손잡은 동료"],["fut-32","함께 토론"],["fut-33","열정적 발표"],
+  ["fut-34","즐거운 협업"],["fut-35","목표 달성"],["fut-36","집중하는 모습"],
+  ["fut-37","축하의 순간"],["fut-38","사람들의 미소"],["fut-39","함께 걷는 길"],
+  ["fut-40","희망찬 길"],["fut-41","열쇠를 든 손"],["fut-42","빛나는 도시"],
+  ["fut-43","산뜻한 아침"],["fut-44","희망의 손"],["fut-45","울창한 숲"],
+  ["fut-46","따뜻한 햇빛"],["fut-47","넓은 들판"],["fut-48","상쾌한 자연"],
+  ["fut-49","꽃과 나비"],["fut-50","빛나는 미래"]
 ];
-
 const ALL_CARDS = [
   ...NOW_CARDS.map(([id,label],i)=>({id, label, type:"now",    idx:i+1})),
   ...FUTURE_CARDS.map(([id,label],i)=>({id, label, type:"future", idx:i+51}))
 ];
-
-/* Picsum Photos 시드 URL — 항상 작동.
-   id(unsplash 패턴 문자열)를 시드로 사용해 카드별로 항상 같은 사진이 나옵니다. */
 const cardUrl = (id, w=400) => {
   const h = Math.round(w * 3 / 4);
   return `https://picsum.photos/seed/${encodeURIComponent(id)}/${w}/${h}`;
 };
 
 /* ============================================================
+   ADMIN AUTH
+   ============================================================ */
+const ADMIN_HASH_KEY = "icf:adminhash";
+const ADMIN_SESSION  = "icf:adminok";
+const DEFAULT_ADMIN_PWD = "Denmark2025!";
+
+async function sha256(text) {
+  const data = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+async function getStoredAdminHash() {
+  let h = localStorage.getItem(ADMIN_HASH_KEY);
+  if (!h) {
+    h = await sha256(DEFAULT_ADMIN_PWD);
+    localStorage.setItem(ADMIN_HASH_KEY, h);
+  }
+  return h;
+}
+async function verifyAdminPassword(pwd) {
+  const stored = await getStoredAdminHash();
+  const h = await sha256(pwd);
+  return h === stored;
+}
+async function setAdminPassword(newPwd) {
+  const h = await sha256(newPwd);
+  localStorage.setItem(ADMIN_HASH_KEY, h);
+}
+function isAdminUnlocked() { return sessionStorage.getItem(ADMIN_SESSION) === "1"; }
+function setAdminUnlocked(v) {
+  if (v) sessionStorage.setItem(ADMIN_SESSION, "1");
+  else sessionStorage.removeItem(ADMIN_SESSION);
+}
+
+/* ============================================================
    STATE
    ============================================================ */
-const STORE_KEY = "icf:v1";
 const PROFILE_KEY = "icf:profile";
-const FILTER_KEY = "icf:filter";
+const FILTER_KEY  = "icf:filter";
+const LOCAL_SUBS  = "icf:localsubs";
 
 let state = {
-  profile: null,           // { name, group }
-  selectedNow: null,       // card index in ALL_CARDS
+  profile: null,
+  selectedNow: null,
   selectedFuture: null,
   reasonNow: "",
   reasonFuture: "",
   filter: "all",
-  submissions: [],         // [{id, name, group, now:{id,label}, future:{id,label}, reasonNow, reasonFuture, ts}]
+  submissions: [],
 };
 
-function loadAll() {
+let sb = null;        // Supabase client
+let mode = "local";   // "cloud" | "local" | "error"
+
+/* ============================================================
+   SUPABASE INIT
+   ============================================================ */
+function initSupabase() {
+  const isPlaceholder = !SUPABASE_URL || SUPABASE_URL.includes("PASTE_YOUR")
+                     || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes("PASTE_YOUR");
+  if (isPlaceholder) {
+    mode = "local";
+    setStatus("로컬 모드", "local");
+    return false;
+  }
   try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) state.submissions = JSON.parse(raw) || [];
-  } catch(e) { state.submissions = []; }
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    mode = "cloud";
+    setStatus("클라우드 연결됨", "cloud");
+    return true;
+  } catch (e) {
+    console.error(e);
+    mode = "error";
+    setStatus("연결 실패", "err");
+    return false;
+  }
+}
+function setStatus(text, kind) {
+  const el = document.getElementById("status");
+  el.textContent = text;
+  el.className = "status-badge " + (kind || "");
+}
+
+/* DB row -> sub object */
+function rowToSub(r) {
+  return {
+    id: r.id,
+    name: r.name,
+    group: r.group_name,
+    now:    { id: r.now_id, label: r.now_label },
+    future: { id: r.future_id, label: r.future_label },
+    reasonNow: r.reason_now,
+    reasonFuture: r.reason_future,
+    ts: Number(r.ts),
+  };
+}
+function subToRow(s) {
+  return {
+    id: s.id,
+    name: s.name,
+    group_name: s.group,
+    now_id: s.now.id, now_label: s.now.label,
+    future_id: s.future.id, future_label: s.future.label,
+    reason_now: s.reasonNow,
+    reason_future: s.reasonFuture,
+    ts: s.ts,
+  };
+}
+
+/* ============================================================
+   LOAD / SAVE
+   ============================================================ */
+function loadLocalProfile() {
   try {
     const p = localStorage.getItem(PROFILE_KEY);
     if (p) state.profile = JSON.parse(p);
@@ -704,8 +803,67 @@ function loadAll() {
     if (f) state.filter = f;
   } catch(e) {}
 }
-function saveSubs() { localStorage.setItem(STORE_KEY, JSON.stringify(state.submissions)); }
-function saveProfile() { localStorage.setItem(PROFILE_KEY, JSON.stringify(state.profile)); }
+function saveLocalProfile() { localStorage.setItem(PROFILE_KEY, JSON.stringify(state.profile)); }
+
+async function loadSubmissions() {
+  if (mode === "cloud" && sb) {
+    const { data, error } = await sb.from("submissions").select("*").order("ts", { ascending: false });
+    if (error) {
+      console.error(error);
+      toast("불러오기 실패: " + error.message, "err");
+      mode = "error"; setStatus("DB 오류", "err");
+      return;
+    }
+    state.submissions = (data || []).map(rowToSub);
+  } else {
+    try {
+      const raw = localStorage.getItem(LOCAL_SUBS);
+      state.submissions = raw ? JSON.parse(raw) : [];
+    } catch(e) { state.submissions = []; }
+  }
+}
+
+async function saveNewSubmission(sub) {
+  if (mode === "cloud" && sb) {
+    const { error } = await sb.from("submissions").insert(subToRow(sub));
+    if (error) throw error;
+  } else {
+    state.submissions.unshift(sub);
+    localStorage.setItem(LOCAL_SUBS, JSON.stringify(state.submissions));
+  }
+}
+
+async function deleteAllSubmissions() {
+  if (mode === "cloud" && sb) {
+    const { error } = await sb.from("submissions").delete().neq("id", "__never__");
+    if (error) throw error;
+  } else {
+    localStorage.removeItem(LOCAL_SUBS);
+  }
+  state.submissions = [];
+}
+
+/* Realtime — listen for new/deleted submissions */
+function subscribeRealtime() {
+  if (mode !== "cloud" || !sb) return;
+  sb.channel("submissions-rt")
+    .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "submissions" },
+        payload => {
+          const s = rowToSub(payload.new);
+          if (!state.submissions.find(x => x.id === s.id)) {
+            state.submissions.unshift(s);
+            renderGallery();
+          }
+        })
+    .on("postgres_changes",
+        { event: "DELETE", schema: "public", table: "submissions" },
+        payload => {
+          state.submissions = state.submissions.filter(x => x.id !== payload.old.id);
+          renderGallery();
+        })
+    .subscribe();
+}
 
 /* ============================================================
    TOAST
@@ -716,7 +874,7 @@ function toast(msg, kind="") {
   el.textContent = msg;
   el.className = "toast show " + kind;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=> el.className = "toast " + kind, 2200);
+  toastTimer = setTimeout(()=> el.className = "toast " + kind, 2400);
 }
 
 /* ============================================================
@@ -731,7 +889,57 @@ function switchTab(tab) {
   document.getElementById("view-gallery").classList.toggle("hidden", tab !== "gallery");
   document.getElementById("view-admin").classList.toggle("hidden", tab !== "admin");
   if (tab === "gallery") renderGallery();
+  if (tab === "admin")   showAdminGate();
 }
+
+/* Admin gate */
+function showAdminGate() {
+  const lock = document.getElementById("admin-lock");
+  const content = document.getElementById("admin-content");
+  if (isAdminUnlocked()) {
+    lock.classList.add("hidden");
+    content.classList.remove("hidden");
+    renderAdmin();
+  } else {
+    lock.classList.remove("hidden");
+    content.classList.add("hidden");
+    document.getElementById("admin-pwd").value = "";
+    setTimeout(() => document.getElementById("admin-pwd").focus(), 50);
+  }
+}
+document.getElementById("admin-unlock").addEventListener("click", async () => {
+  const pwd = document.getElementById("admin-pwd").value;
+  if (!pwd) return toast("비밀번호를 입력하세요", "err");
+  const ok = await verifyAdminPassword(pwd);
+  if (!ok) return toast("비밀번호가 올바르지 않습니다", "err");
+  setAdminUnlocked(true);
+  toast("관리자 인증 완료", "ok");
+  showAdminGate();
+});
+document.getElementById("admin-pwd").addEventListener("keydown", e => {
+  if (e.key === "Enter") document.getElementById("admin-unlock").click();
+});
+document.getElementById("btn-lock").addEventListener("click", () => {
+  setAdminUnlocked(false);
+  toast("로그아웃 되었습니다", "ok");
+  showAdminGate();
+});
+
+/* Change admin password */
+document.getElementById("btn-change-pwd").addEventListener("click", async () => {
+  const cur  = document.getElementById("pwd-current").value;
+  const pw1  = document.getElementById("pwd-new").value;
+  const pw2  = document.getElementById("pwd-new2").value;
+  if (!cur)  return toast("현재 비밀번호를 입력하세요", "err");
+  if (!await verifyAdminPassword(cur)) return toast("현재 비밀번호가 올바르지 않습니다", "err");
+  if (pw1.length < 8) return toast("새 비밀번호는 8자 이상이어야 합니다", "err");
+  if (pw1 !== pw2) return toast("새 비밀번호가 일치하지 않습니다", "err");
+  await setAdminPassword(pw1);
+  document.getElementById("pwd-current").value = "";
+  document.getElementById("pwd-new").value = "";
+  document.getElementById("pwd-new2").value = "";
+  toast("비밀번호가 변경되었습니다", "ok");
+});
 
 /* ============================================================
    GATE
@@ -744,10 +952,10 @@ const $gGroup = document.getElementById("g-group");
 document.getElementById("g-start").addEventListener("click", () => {
   const name = $gName.value.trim();
   const group = $gGroup.value;
-  if (!name) return toast("이름을 입력하세요", "err");
+  if (!name)  return toast("이름을 입력하세요", "err");
   if (!group) return toast("조를 선택하세요", "err");
   state.profile = { name, group };
-  saveProfile();
+  saveLocalProfile();
   enterBoard();
 });
 
@@ -763,7 +971,6 @@ function enterBoard() {
    CARD GRID
    ============================================================ */
 const $grid = document.getElementById("grid");
-
 function renderGrid() {
   $grid.innerHTML = "";
   const list = ALL_CARDS.filter(c => state.filter === "all" ? true : c.type === state.filter);
@@ -781,14 +988,8 @@ function renderGrid() {
     `;
     const imgWrap = el.querySelector(".card-img");
     const img = el.querySelector("img");
-    img.addEventListener("load", () => {
-      imgWrap.classList.remove("loading");
-      img.classList.add("loaded");
-    });
-    img.addEventListener("error", () => {
-      imgWrap.classList.remove("loading");
-      imgWrap.classList.add("failed");
-    });
+    img.addEventListener("load", () => { imgWrap.classList.remove("loading"); img.classList.add("loaded"); });
+    img.addEventListener("error", () => { imgWrap.classList.remove("loading"); imgWrap.classList.add("failed"); });
     img.src = cardUrl(card.id, 400);
     el.addEventListener("click", () => onPickCard(parseInt(el.dataset.idx, 10)));
     frag.appendChild(el);
@@ -796,7 +997,6 @@ function renderGrid() {
   $grid.appendChild(frag);
   highlightSelectedCards();
 }
-
 function highlightSelectedCards() {
   document.querySelectorAll(".card").forEach(el => {
     const idx = parseInt(el.dataset.idx, 10);
@@ -804,24 +1004,16 @@ function highlightSelectedCards() {
     el.classList.toggle("selected-future", state.selectedFuture === idx);
   });
 }
-
 function onPickCard(idx) {
   const card = ALL_CARDS[idx];
   if (!card) return;
-  // If already selected for either slot → unselect
-  if (state.selectedNow === idx) { state.selectedNow = null; refreshSlots(); return; }
+  if (state.selectedNow === idx)    { state.selectedNow = null; refreshSlots(); return; }
   if (state.selectedFuture === idx) { state.selectedFuture = null; refreshSlots(); return; }
-
-  // Place into matching slot type
-  if (card.type === "now") {
-    state.selectedNow = idx;
-  } else {
-    state.selectedFuture = idx;
-  }
+  if (card.type === "now") state.selectedNow = idx;
+  else state.selectedFuture = idx;
   refreshSlots();
 }
 
-/* filters */
 document.querySelectorAll(".chip[data-filter]").forEach(chip => {
   chip.addEventListener("click", () => {
     state.filter = chip.dataset.filter;
@@ -840,7 +1032,6 @@ function applyFilterUI() {
    SLOTS
    ============================================================ */
 function refreshSlots() {
-  // NOW
   const nowBody = document.getElementById("slot-now-body");
   const nowLabel = document.getElementById("slot-now-label");
   const nowClear = document.querySelector("[data-slot='now']");
@@ -859,7 +1050,6 @@ function refreshSlots() {
     nowClear.classList.add("hidden");
     nowSlot.classList.remove("has");
   }
-  // FUTURE
   const fBody = document.getElementById("slot-future-body");
   const fLabel = document.getElementById("slot-future-label");
   const fClear = document.querySelector("[data-slot='future']");
@@ -881,7 +1071,6 @@ function refreshSlots() {
   highlightSelectedCards();
   validateSubmit();
 }
-
 document.querySelectorAll(".slot-clear").forEach(btn => {
   btn.addEventListener("click", () => {
     if (btn.dataset.slot === "now") state.selectedNow = null;
@@ -895,7 +1084,6 @@ document.querySelectorAll(".slot-clear").forEach(btn => {
    ============================================================ */
 const $rNow = document.getElementById("reason-now");
 const $rFut = document.getElementById("reason-future");
-
 function setupReason(textarea, key, counterId, metaId) {
   textarea.addEventListener("input", () => {
     state[key] = textarea.value;
@@ -915,14 +1103,15 @@ const $submit = document.getElementById("submit");
 function validateSubmit() {
   const ok =
     state.profile &&
-    state.selectedNow != null &&
-    state.selectedFuture != null &&
+    state.selectedNow != null && state.selectedFuture != null &&
     state.reasonNow.trim().length >= 10 &&
     state.reasonFuture.trim().length >= 10;
   $submit.disabled = !ok;
 }
-$submit.addEventListener("click", () => {
+$submit.addEventListener("click", async () => {
   if ($submit.disabled) return;
+  $submit.disabled = true;
+  $submit.textContent = "제출 중…";
   const now = ALL_CARDS[state.selectedNow];
   const fut = ALL_CARDS[state.selectedFuture];
   const sub = {
@@ -935,20 +1124,31 @@ $submit.addEventListener("click", () => {
     reasonFuture: state.reasonFuture.trim(),
     ts: Date.now(),
   };
-  state.submissions.unshift(sub);
-  saveSubs();
-  toast("제출 완료! 갤러리로 이동합니다", "ok");
-  // reset
-  state.selectedNow = null;
-  state.selectedFuture = null;
-  state.reasonNow = ""; state.reasonFuture = "";
-  $rNow.value = ""; $rFut.value = "";
-  document.getElementById("cnt-now").textContent = "0";
-  document.getElementById("cnt-future").textContent = "0";
-  document.getElementById("meta-now").classList.remove("ok");
-  document.getElementById("meta-future").classList.remove("ok");
-  refreshSlots();
-  setTimeout(()=> switchTab("gallery"), 700);
+  try {
+    await saveNewSubmission(sub);
+    if (mode !== "cloud") {
+      // local mode: ensure local cache reflects (saveNewSubmission already pushes)
+    } else {
+      // cloud mode: insert to local list immediately for fast UI; realtime may also fire
+      if (!state.submissions.find(x => x.id === sub.id)) state.submissions.unshift(sub);
+    }
+    toast("제출 완료! 갤러리로 이동합니다", "ok");
+    state.selectedNow = null; state.selectedFuture = null;
+    state.reasonNow = ""; state.reasonFuture = "";
+    $rNow.value = ""; $rFut.value = "";
+    document.getElementById("cnt-now").textContent = "0";
+    document.getElementById("cnt-future").textContent = "0";
+    document.getElementById("meta-now").classList.remove("ok");
+    document.getElementById("meta-future").classList.remove("ok");
+    refreshSlots();
+    setTimeout(()=> switchTab("gallery"), 700);
+  } catch (e) {
+    console.error(e);
+    toast("제출 실패: " + (e.message || e), "err");
+  } finally {
+    $submit.textContent = "제출하기";
+    validateSubmit();
+  }
 });
 
 /* ============================================================
@@ -1007,24 +1207,39 @@ function escapeHtml(s) {
 /* ============================================================
    ADMIN
    ============================================================ */
-document.getElementById("btn-reset").addEventListener("click", () => {
-  if (!confirm("모든 제출 데이터와 참가자 정보를 삭제합니다.\n계속하시겠습니까?")) return;
-  state.submissions = [];
-  state.profile = null;
-  state.selectedNow = state.selectedFuture = null;
-  state.reasonNow = state.reasonFuture = "";
-  localStorage.removeItem(STORE_KEY);
-  localStorage.removeItem(PROFILE_KEY);
-  toast("초기화 완료", "ok");
-  // restore gate UI
-  $rNow.value = ""; $rFut.value = "";
-  $gName.value = ""; $gGroup.value = "";
-  document.getElementById("cnt-now").textContent = "0";
-  document.getElementById("cnt-future").textContent = "0";
-  $gate.classList.remove("hidden");
-  $board.classList.add("hidden");
-  renderGallery();
-  switchTab("participate");
+function renderAdmin() {
+  const el = document.getElementById("storage-status");
+  if (mode === "cloud") {
+    el.innerHTML = `✅ <b style="color:var(--green)">클라우드 모드</b> — 모든 참가자의 제출이 Supabase에 저장되어 모두에게 보입니다.`;
+  } else if (mode === "error") {
+    el.innerHTML = `⚠️ <b style="color:var(--danger)">연결 오류</b> — Supabase 키 또는 테이블 설정을 확인하세요.`;
+  } else {
+    el.innerHTML = `📱 <b style="color:var(--gold)">로컬 모드</b> — 데이터가 본 기기 브라우저에만 저장됩니다. <br/>Supabase 키를 입력하면 클라우드 동기화가 활성화됩니다 (코드 상단 <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code>).`;
+  }
+}
+
+document.getElementById("btn-reset").addEventListener("click", async () => {
+  if (!confirm(mode === "cloud"
+    ? "클라우드의 모든 참가자 제출을 영구 삭제합니다.\n계속하시겠습니까?"
+    : "본 기기의 모든 제출 데이터를 삭제합니다.\n계속하시겠습니까?")) return;
+  try {
+    await deleteAllSubmissions();
+    state.profile = null;
+    state.selectedNow = state.selectedFuture = null;
+    state.reasonNow = state.reasonFuture = "";
+    localStorage.removeItem(PROFILE_KEY);
+    toast("초기화 완료", "ok");
+    $rNow.value = ""; $rFut.value = "";
+    $gName.value = ""; $gGroup.value = "";
+    document.getElementById("cnt-now").textContent = "0";
+    document.getElementById("cnt-future").textContent = "0";
+    $gate.classList.remove("hidden");
+    $board.classList.add("hidden");
+    renderGallery();
+    switchTab("participate");
+  } catch (e) {
+    toast("초기화 실패: " + (e.message || e), "err");
+  }
 });
 
 document.getElementById("btn-export").addEventListener("click", () => {
@@ -1043,15 +1258,18 @@ document.getElementById("btn-export").addEventListener("click", () => {
 /* ============================================================
    BOOT
    ============================================================ */
-loadAll();
-if (state.profile) {
-  $gName.value = state.profile.name;
-  $gGroup.value = state.profile.group;
-  enterBoard();
-} else {
-  // still render an empty grid behind, in case
-}
-renderGallery();
+(async function boot() {
+  initSupabase();
+  loadLocalProfile();
+  await loadSubmissions();
+  subscribeRealtime();
+  // 매번 입장 화면을 띄우되, 이전 값은 미리 채워둠
+  if (state.profile) {
+    $gName.value = state.profile.name;
+    $gGroup.value = state.profile.group;
+  }
+  renderGallery();
+})();
 </script>
 </body>
 </html>
